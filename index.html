@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monkey Bamboo Climber</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #0a1f0a;
+    --fg: #e8f5e0;
+    --accent: #f5a623;
+    --accent2: #e74c3c;
+    --card: rgba(15,45,15,0.85);
+    --border: #2d5a2d;
+    --bamboo: #4a8c3f;
+    --bamboo-dark: #2d6b25;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Nunito', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Atmospheric background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 80%, rgba(74,140,63,0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(245,166,35,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(10,31,10,1) 0%, #050f05 100%);
+    z-index: -1;
+  }
+
+  #gameWrapper {
+    position: relative;
+    border: 3px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+      0 0 40px rgba(74,140,63,0.2),
+      0 0 80px rgba(0,0,0,0.5),
+      inset 0 0 30px rgba(0,0,0,0.3);
+  }
+
+  canvas {
+    display: block;
+    border-radius: 13px;
+  }
+
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .hud-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 900;
+    font-size: 18px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+
+  .hud-item i {
+    font-size: 20px;
+  }
+
+  .hud-score i { color: var(--accent); }
+  .hud-lives i { color: var(--accent2); }
+  .hud-height i { color: #5ddb5d; }
+
+  #controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ctrl-btn {
+    width: 60px;
+    height: 60px;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+    color: var(--fg);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .ctrl-btn:hover { background: rgba(74,140,63,0.3); border-color: var(--bamboo); }
+  .ctrl-btn:active { transform: scale(0.92); background: rgba(74,140,63,0.5); }
+
+  .ctrl-hint {
+    font-size: 13px;
+    color: rgba(232,245,224,0.4);
+    font-weight: 700;
+  }
+
+  /* Overlay screens */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5,15,5,0.88);
+    backdrop-filter: blur(8px);
+    z-index: 20;
+    border-radius: 13px;
+    transition: opacity 0.4s;
+  }
+
+  .overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .overlay h1 {
+    font-family: 'Bungee Shade', cursive;
+    font-size: 36px;
+    color: var(--accent);
+    margin-bottom: 8px;
+    text-shadow: 0 4px 20px rgba(245,166,35,0.3);
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .overlay p {
+    font-size: 16px;
+    color: rgba(232,245,224,0.7);
+    margin-bottom: 24px;
+    text-align: center;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+
+  .overlay .final-score {
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--accent);
+    margin: 8px 0 4px;
+  }
+
+  .overlay .final-label {
+    font-size: 14px;
+    color: rgba(232,245,224,0.5);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .play-btn {
+    padding: 14px 48px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--bg);
+    background: linear-gradient(135deg, var(--accent), #e8941a);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(245,166,35,0.4);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .play-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 30px rgba(245,166,35,0.6);
+  }
+
+  .play-btn:active { transform: scale(0.96); }
+
+  .monkey-icon {
+    font-size: 64px;
+    margin-bottom: 12px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+  }
+
+  @media (max-width: 520px) {
+    #gameWrapper { border-radius: 10px; }
+    canvas { border-radius: 8px; }
+    .overlay h1 { font-size: 26px; }
+    .ctrl-btn { width: 52px; height: 52px; font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gameWrapper">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-item hud-score">
+      <i class="fas fa-star"></i>
+      <span id="scoreDisplay">0</span>
+    </div>
+    <div class="hud-item hud-height">
+      <i class="fas fa-arrow-up"></i>
+      <span id="heightDisplay">0m</span>
+    </div>
+    <div class="hud-item hud-lives">
+      <i class="fas fa-heart"></i>
+      <span id="livesDisplay">3</span>
+    </div>
+  </div>
+
+  <!-- Start Screen -->
+  <div class="overlay" id="startScreen">
+    <div class="monkey-icon">🐒</div>
+    <h1>Bamboo Climber</h1>
+    <p>Switch between 3 bamboo stalks to dodge falling obstacles. How high can you climb?</p>
+    <button class="play-btn" id="startBtn">Start Climbing</button>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div class="overlay hidden" id="gameOverScreen">
+    <h1>Game Over</h1>
+    <div class="final-label">Final Score</div>
+    <div class="final-score" id="finalScore">0</div>
+    <div class="final-label" id="finalHeight">0m climbed</div>
+    <button class="play-btn" id="restartBtn">Try Again</button>
+  </div>
+</div>
+
+<div id="controls">
+  <button class="ctrl-btn" id="leftBtn" aria-label="Move Left">
+    <i class="fas fa-chevron-left"></i>
+  </button>
+  <span class="ctrl-hint">A / D or Arrow Keys</span>
+  <button class="ctrl-btn" id="rightBtn" aria-label="Move Right">
+    <i class="fas fa-chevron-right"></i>
+  </button>
+</div>
+
+<script>
+// ==================== GAME CONFIG ====================
+const CONFIG = {
+  canvasW: 420,
+  canvasH: 640,
+  bambooCount: 3,
+  bambooSpacing: 120,
+  bambooWidth: 22,
+  monkeySize: 40,
+  baseSpeed: 2.2,
+  maxSpeed: 6,
+  speedIncrement: 0.0008,
+  obstacleInterval: 70,
+  minObstacleInterval: 30,
+  lives: 3,
+  invincibleFrames: 90,
+  nodeSpacing: 50,
+};
+
+// ==================== CANVAS SETUP ====================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const maxW = Math.min(CONFIG.canvasW, window.innerWidth - 32);
+  const ratio = maxW / CONFIG.canvasW;
+  const w = Math.floor(CONFIG.canvasW * ratio);
+  const h = Math.floor(CONFIG.canvasH * ratio);
+  canvas.width = w;
+  canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  return ratio;
+}
+
+let scale = resizeCanvas();
+window.addEventListener('resize', () => { scale = resizeCanvas(); });
+
+// ==================== GAME STATE ====================
+let gameState = 'start'; // start, playing, over
+let score = 0;
+let height = 0;
+let lives = CONFIG.lives;
+let monkeyBamboo = 1; // 0, 1, 2
+let monkeyY = 0;
+let monkeyTargetY = 0;
+let monkeySwitchAnim = 0;
+let speed = CONFIG.baseSpeed;
+let frameCount = 0;
+let invincibleTimer = 0;
+let obstacles = [];
+let particles = [];
+let leafParticles = [];
+let bambooOffset = 0;
+let shakeTimer = 0;
+let shakeIntensity = 0;
+let highScore = parseInt(localStorage.getItem('monkeyClimberHigh') || '0');
+
+// ==================== DOM REFS ====================
+const scoreDisplay = document.getElementById('scoreDisplay');
+const heightDisplay = document.getElementById('heightDisplay');
+const livesDisplay = document.getElementById('livesDisplay');
+const startScreen = document.getElementById('startScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const finalScore = document.getElementById('finalScore');
+const finalHeight = document.getElementById('finalHeight');
+
+// ==================== HELPERS ====================
+function getBambooX(index) {
+  const totalW = (CONFIG.bambooCount - 1) * CONFIG.bambooSpacing;
+  const startX = (CONFIG.canvasW - totalW) / 2;
+  return startX + index * CONFIG.bambooSpacing;
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function rand(min, max) { return Math.random() * (max - min) + min; }
+
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+
+// ==================== OBSTACLE TYPES ====================
+const OBSTACLE_TYPES = [
+  { name: 'coconut', color: '#8B4513', radius: 16, shape: 'circle' },
+  { name: 'snake', color: '#2ecc40', radius: 14, shape: 'snake' },
+  { name: 'thorn', color: '#c0392b', radius: 18, shape: 'thorn' },
+  { name: 'wasp', color: '#f39c12', radius: 13, shape: 'wasp' },
+];
+
+// ==================== PARTICLE SYSTEM ====================
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: rand(-3, 3),
+      vy: rand(-4, 1),
+      life: rand(20, 45),
+      maxLife: 45,
+      size: rand(2, 6),
+      color,
+    });
+  }
+}
+
+function spawnLeaves() {
+  if (Math.random() < 0.03) {
+    leafParticles.push({
+      x: rand(0, CONFIG.canvasW),
+      y: -10,
+      vx: rand(-0.5, 0.5),
+      vy: rand(0.5, 1.5),
+      rotation: rand(0, Math.PI * 2),
+      rotSpeed: rand(-0.05, 0.05),
+      size: rand(8, 16),
+      life: 400,
+      green: randInt(80, 180),
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.1;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = leafParticles.length - 1; i >= 0; i--) {
+    const l = leafParticles[i];
+    l.x += l.vx;
+    l.y += l.vy;
+    l.rotation += l.rotSpeed;
+    l.life--;
+    if (l.life <= 0 || l.y > CONFIG.canvasH + 20) leafParticles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x * scale, p.y * scale, Math.max(0.5, p.size * scale), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  for (const l of leafParticles) {
+    ctx.save();
+    ctx.translate(l.x * scale, l.y * scale);
+    ctx.rotate(l.rotation);
+    ctx.fillStyle = `rgb(30,${l.green},20)`;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, l.size * scale * 0.4, l.size * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ==================== DRAW BAMBOO ====================
+function drawBamboo(x, offset) {
+  const bx = x * scale;
+  const bw = CONFIG.bambooWidth * scale;
+  const halfW = bw / 2;
+
+  // Bamboo body
+  const grad = ctx.createLinearGradient(bx - halfW, 0, bx + halfW, 0);
+  grad.addColorStop(0, '#2d6b25');
+  grad.addColorStop(0.3, '#5da84e');
+  grad.addColorStop(0.5, '#6ec45a');
+  grad.addColorStop(0.7, '#5da84e');
+  grad.addColorStop(1, '#2d6b25');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(bx - halfW, 0, bw, CONFIG.canvasH * scale);
+
+  // Bamboo nodes
+  const nodeSpacing = CONFIG.nodeSpacing * scale;
+  const nodeOffset = (offset * scale) % nodeSpacing;
+  ctx.fillStyle = '#3a7d32';
+  for (let y = -nodeSpacing + nodeOffset; y < CONFIG.canvasH * scale + nodeSpacing; y += nodeSpacing) {
+    ctx.fillRect(bx - halfW - 2 * scale, y - 2 * scale, bw + 4 * scale, 4 * scale);
+    // Node ring highlight
+    ctx.fillStyle = 'rgba(120,200,100,0.3)';
+    ctx.fillRect(bx - halfW - 1 * scale, y - 1 * scale, bw + 2 * scale, 2 * scale);
+    ctx.fillStyle = '#3a7d32';
+  }
+
+  // Subtle shine line
+  ctx.strokeStyle = 'rgba(160,230,140,0.15)';
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath();
+  ctx.moveTo(bx - halfW * 0.3, 0);
+  ctx.lineTo(bx - halfW * 0.3, CONFIG.canvasH * scale);
+  ctx.stroke();
+}
+
+// ==================== DRAW MONKEY ====================
+function drawMonkey(x, y, isHurt) {
+  const mx = x * scale;
+  const my = y * scale;
+  const s = CONFIG.monkeySize * scale;
+  const half = s / 2;
+
+  // Invincible flash
+  if (invincibleTimer > 0 && Math.floor(invincibleTimer / 4) % 2 === 0) {
+    ctx.globalAlpha = 0.4;
+  }
+
+  // Shadow on bamboo
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(mx, my + half * 0.8, half * 0.6, half * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Arms gripping bamboo
+  ctx.strokeStyle = '#8B5E3C';
+  ctx.lineWidth = 5 * scale;
+  ctx.lineCap = 'round';
+  // Left arm
+  ctx.beginPath();
+  ctx.moveTo(mx - half * 0.7, my - half * 0.1);
+  ctx.quadraticCurveTo(mx - half * 1.3, my - half * 0.3, mx - half * 1.1, my - half * 0.6);
+  ctx.stroke();
+  // Right arm
+  ctx.beginPath();
+  ctx.moveTo(mx + half * 0.7, my - half * 0.1);
+  ctx.quadraticCurveTo(mx + half * 1.3, my - half * 0.3, mx + half * 1.1, my - half * 0.6);
+  ctx.stroke();
+
+  // Tail
+  ctx.strokeStyle = '#8B5E3C';
+  ctx.lineWidth = 4 * scale;
+  ctx.beginPath();
+  ctx.moveTo(mx + half * 0.3, my + half * 0.5);
+  ctx.quadraticCurveTo(mx + half * 1.5, my + half * 1.2, mx + half * 0.8, my + half * 1.5);
+  ctx.stroke();
+
+  // Body
+  ctx.fillStyle = '#A0714F';
+  ctx.beginPath();
+  ctx.ellipse(mx, my + half * 0.15, half * 0.6, half * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Belly
+  ctx.fillStyle = '#D4A76A';
+  ctx.beginPath();
+  ctx.ellipse(mx, my + half * 0.25, half * 0.38, half * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = '#A0714F';
+  ctx.beginPath();
+  ctx.ellipse(mx, my - half * 0.5, half * 0.55, half * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Face
+  ctx.fillStyle = '#D4A76A';
+  ctx.beginPath();
+  ctx.ellipse(mx, my - half * 0.4, half * 0.4, half * 0.38, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  const eyeY = my - half * 0.52;
+  const eyeOffX = half * 0.18;
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.ellipse(mx - eyeOffX, eyeY, 3 * scale, 3.5 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(mx + eyeOffX, eyeY, 3 * scale, 3.5 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye highlights
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(mx - eyeOffX + 1 * scale, eyeY - 1 * scale, 1.2 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(mx + eyeOffX + 1 * scale, eyeY - 1 * scale, 1.2 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Nose
+  ctx.fillStyle = '#7a5035';
+  ctx.beginPath();
+  ctx.ellipse(mx, my - half * 0.38, 2.5 * scale, 2 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mouth
+  if (isHurt) {
+    // Hurt expression - open mouth
+    ctx.fillStyle = '#4a1a1a';
+    ctx.beginPath();
+    ctx.ellipse(mx, my - half * 0.28, 4 * scale, 5 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = '#7a5035';
+    ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath();
+    ctx.arc(mx, my - half * 0.32, 5 * scale, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+  }
+
+  // Ears
+  ctx.fillStyle = '#D4A76A';
+  ctx.beginPath();
+  ctx.arc(mx - half * 0.52, my - half * 0.55, 5 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(mx + half * 0.52, my - half * 0.55, 5 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Legs
+  ctx.strokeStyle = '#8B5E3C';
+  ctx.lineWidth = 5 * scale;
+  ctx.lineCap = 'round';
+  // Left leg
+  ctx.beginPath();
+  ctx.moveTo(mx - half * 0.35, my + half * 0.6);
+  ctx.quadraticCurveTo(mx - half * 0.9, my + half * 0.9, mx - half * 0.6, my + half * 1.2);
+  ctx.stroke();
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(mx + half * 0.35, my + half * 0.6);
+  ctx.quadraticCurveTo(mx + half * 0.9, my + half * 0.9, mx + half * 0.6, my + half * 1.2);
+  ctx.stroke();
+
+  ctx.globalAlpha = 1;
+}
+
+// ==================== DRAW OBSTACLES ====================
+function drawObstacle(obs) {
+  const ox = obs.x * scale;
+  const oy = obs.y * scale;
+  const r = obs.type.radius * scale;
+  const t = frameCount * 0.05;
+
+  switch (obs.type.shape) {
+    case 'circle': {
+      // Coconut
+      ctx.fillStyle = obs.type.color;
+      ctx.beginPath();
+      ctx.arc(ox, oy, r, 0, Math.PI * 2);
+      ctx.fill();
+      // Highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.beginPath();
+      ctx.arc(ox - r * 0.3, oy - r * 0.3, r * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      // Fiber lines
+      ctx.strokeStyle = 'rgba(60,30,0,0.3)';
+      ctx.lineWidth = 1 * scale;
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2 + t;
+        ctx.beginPath();
+        ctx.arc(ox, oy, r * 0.7, a, a + 0.8);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'snake': {
+      // Snake body - wavy
+      ctx.strokeStyle = '#27ae60';
+      ctx.lineWidth = r * 0.8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - r);
+      for (let i = 0; i < 4; i++) {
+        const sy = oy - r + (i + 1) * (r * 2) / 4;
+        const sx = ox + Math.sin(t * 2 + i * 1.5) * r * 0.8;
+        ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+      // Head
+      ctx.fillStyle = '#2ecc40';
+      ctx.beginPath();
+      ctx.arc(ox, oy - r, r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#ff0';
+      ctx.beginPath();
+      ctx.arc(ox - 3 * scale, oy - r - 2 * scale, 2 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ox + 3 * scale, oy - r - 2 * scale, 2 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      // Tongue
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = 1.5 * scale;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - r + r * 0.3);
+      ctx.lineTo(ox - 3 * scale, oy - r + r * 0.7);
+      ctx.moveTo(ox, oy - r + r * 0.3);
+      ctx.lineTo(ox + 3 * scale, oy - r + r * 0.7);
+      ctx.stroke();
+      break;
+    }
+    case 'thorn': {
+      // Thorny branch
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.rotate(Math.sin(t) * 0.1);
+      // Branch
+      ctx.strokeStyle = '#5a3a1a';
+      ctx.lineWidth = 4 * scale;
+      ctx.beginPath();
+      ctx.moveTo(-r, 0);
+      ctx.lineTo(r, 0);
+      ctx.stroke();
+      // Thorns
+      const thornCount = 5;
+      for (let i = 0; i < thornCount; i++) {
+        const tx = -r + (i + 0.5) * (2 * r) / thornCount;
+        const dir = i % 2 === 0 ? -1 : 1;
+        ctx.fillStyle = '#c0392b';
+        ctx.beginPath();
+        ctx.moveTo(tx, 0);
+        ctx.lineTo(tx - 4 * scale, dir * r * 0.6);
+        ctx.lineTo(tx + 4 * scale, dir * r * 0.6);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'wasp': {
+      // Wasp body
+      ctx.fillStyle = '#f39c12';
+      ctx.beginPath();
+      ctx.ellipse(ox, oy, r * 0.7, r, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Stripes
+      ctx.fillStyle = '#1a1a1a';
+      for (let i = -1; i <= 1; i++) {
+        ctx.fillRect(ox - r * 0.7, oy + i * r * 0.35 - 2 * scale, r * 1.4, 3 * scale);
+      }
+      // Wings
+      ctx.fillStyle = 'rgba(200,220,255,0.5)';
+      const wingFlap = Math.sin(t * 8) * 0.3;
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.rotate(-0.4 + wingFlap);
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.5, -r * 0.8, r * 0.5, r * 0.3, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.rotate(0.4 - wingFlap);
+      ctx.beginPath();
+      ctx.ellipse(r * 0.5, -r * 0.8, r * 0.5, r * 0.3, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      // Eyes
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath();
+      ctx.arc(ox - 3 * scale, oy - r * 0.6, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ox + 3 * scale, oy - r * 0.6, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+  }
+
+  // Danger glow
+  ctx.shadowColor = 'rgba(231,76,60,0.4)';
+  ctx.shadowBlur = 10 * scale;
+  ctx.fillStyle = 'rgba(231,76,60,0.0)';
+  ctx.beginPath();
+  ctx.arc(ox, oy, r * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+// ==================== DRAW BACKGROUND ====================
+function drawBackground() {
+  // Sky gradient
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, CONFIG.canvasH * scale);
+  bgGrad.addColorStop(0, '#0a2a0a');
+  bgGrad.addColorStop(0.4, '#0f3a10');
+  bgGrad.addColorStop(0.7, '#123a12');
+  bgGrad.addColorStop(1, '#0a1f0a');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Distant misty layers
+  ctx.fillStyle = 'rgba(30,80,30,0.08)';
+  const mistOffset = (bambooOffset * 0.1 * scale) % 100;
+  for (let i = -1; i < 8; i++) {
+    const my = i * 100 + mistOffset;
+    ctx.beginPath();
+    ctx.ellipse(canvas.width * 0.2, my, 200 * scale, 30 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(canvas.width * 0.8, my + 50, 180 * scale, 25 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Vines on sides
+  ctx.strokeStyle = 'rgba(40,100,30,0.3)';
+  ctx.lineWidth = 2 * scale;
+  for (let side = 0; side < 2; side++) {
+    const sx = side === 0 ? 15 * scale : canvas.width - 15 * scale;
+    ctx.beginPath();
+    ctx.moveTo(sx, 0);
+    for (let y = 0; y < CONFIG.canvasH; y += 20) {
+      const wave = Math.sin(y * 0.03 + frameCount * 0.01 + side * 2) * 10;
+      ctx.lineTo(sx + wave * scale, y * scale);
+    }
+    ctx.stroke();
+  }
+}
+
+// ==================== OBSTACLE MANAGEMENT ====================
+function spawnObstacle() {
+  // Pick 1 or 2 bamboos to put obstacles on (never all 3)
+  let blocked = [];
+  const numObs = Math.random() < 0.3 ? 2 : 1;
+  while (blocked.length < numObs) {
+    const b = randInt(0, 2);
+    if (!blocked.includes(b)) blocked.push(b);
+  }
+
+  for (const b of blocked) {
+    const type = OBSTACLE_TYPES[randInt(0, OBSTACLE_TYPES.length - 1)];
+    obstacles.push({
+      bamboo: b,
+      x: getBambooX(b),
+      y: -30,
+      type,
+      passed: false,
+    });
+  }
+}
+
+function updateObstacles() {
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const obs = obstacles[i];
+    obs.y += speed;
+    obs.x = getBambooX(obs.bamboo);
+
+    // Check if passed monkey
+    if (!obs.passed && obs.y > monkeyY + CONFIG.monkeySize) {
+      obs.passed = true;
+      score += 10;
+    }
+
+    // Remove if off screen
+    if (obs.y > CONFIG.canvasH + 40) {
+      obstacles.splice(i, 1);
+    }
+  }
+}
+
+// ==================== COLLISION ====================
+function checkCollision() {
+  if (invincibleTimer > 0) return;
+
+  const mx = getBambooX(monkeyBamboo);
+  const my = monkeyY;
+  const mHalf = CONFIG.monkeySize * 0.4;
+
+  for (const obs of obstacles) {
+    if (obs.bamboo !== monkeyBamboo) continue;
+    const dist = Math.abs(obs.y - my);
+    const r = obs.type.radius;
+    if (dist < mHalf + r) {
+      hitMonkey(obs);
+      return;
+    }
+  }
+}
+
+function hitMonkey(obs) {
+  lives--;
+  invincibleTimer = CONFIG.invincibleFrames;
+  shakeTimer = 15;
+  shakeIntensity = 8;
+  spawnParticles(obs.x, obs.y, '#e74c3c', 15);
+  spawnParticles(obs.x, obs.y, '#f5a623', 10);
+
+  // Remove this obstacle
+  const idx = obstacles.indexOf(obs);
+  if (idx !== -1) obstacles.splice(idx, 1);
+
+  if (lives <= 0) {
+    endGame();
+  }
+
+  updateHUD();
+}
+
+// ==================== GAME FLOW ====================
+function startGame() {
+  gameState = 'playing';
+  score = 0;
+  height = 0;
+  lives = CONFIG.lives;
+  monkeyBamboo = 1;
+  monkeyY = CONFIG.canvasH * 0.65;
+  monkeyTargetY = monkeyY;
+  speed = CONFIG.baseSpeed;
+  frameCount = 0;
+  invincibleTimer = 0;
+  obstacles = [];
+  particles = [];
+  leafParticles = [];
+  bambooOffset = 0;
+  shakeTimer = 0;
+  startScreen.classList.add('hidden');
+  gameOverScreen.classList.add('hidden');
+  updateHUD();
+}
+
+function endGame() {
+  gameState = 'over';
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('monkeyClimberHigh', highScore.toString());
+  }
+  finalScore.textContent = score;
+  finalHeight.textContent = Math.floor(height) + 'm climbed';
+  setTimeout(() => {
+    gameOverScreen.classList.remove('hidden');
+  }, 600);
+}
+
+function updateHUD() {
+  scoreDisplay.textContent = score;
+  heightDisplay.textContent = Math.floor(height) + 'm';
+  livesDisplay.textContent = lives;
+}
+
+function moveMonkey(dir) {
+  if (gameState !== 'playing') return;
+  const newBamboo = monkeyBamboo + dir;
+  if (newBamboo < 0 || newBamboo > 2) return;
+  monkeyBamboo = newBamboo;
+  // Little jump animation
+  monkeyTargetY = monkeyY - 15;
+  monkeySwitchAnim = 10;
+  spawnParticles(getBambooX(monkeyBamboo), monkeyY, 'rgba(160,230,140,0.6)', 5);
+}
+
+// ==================== MAIN LOOP ====================
+function update() {
+  if (gameState !== 'playing') return;
+
+  frameCount++;
+  bambooOffset += speed;
+  height += speed * 0.05;
+
+  // Speed increase
+  speed = Math.min(CONFIG.maxSpeed, CONFIG.baseSpeed + frameCount * CONFIG.speedIncrement);
+
+  // Monkey bounce animation
+  if (monkeySwitchAnim > 0) {
+    monkeySwitchAnim--;
+    monkeyY = lerp(monkeyY, monkeyTargetY, 0.3);
+  } else {
+    monkeyY = lerp(monkeyY, CONFIG.canvasH * 0.65, 0.1);
+  }
+
+  // Invincibility
+  if (invincibleTimer > 0) invincibleTimer--;
+
+  // Shake
+  if (shakeTimer > 0) shakeTimer--;
+
+  // Spawn obstacles
+  const interval = Math.max(CONFIG.minObstacleInterval,
+    CONFIG.obstacleInterval - frameCount * 0.02);
+  if (frameCount % Math.floor(interval) === 0) {
+    spawnObstacle();
+  }
+
+  updateObstacles();
+  checkCollision();
+  spawnLeaves();
+  updateParticles();
+
+  // Score from height
+  if (frameCount % 10 === 0) {
+    score += 1;
+  }
+
+  updateHUD();
+}
+
+function draw() {
+  ctx.save();
+
+  // Screen shake
+  if (shakeTimer > 0) {
+    const sx = (Math.random() - 0.5) * shakeIntensity * scale;
+    const sy = (Math.random() - 0.5) * shakeIntensity * scale;
+    ctx.translate(sx, sy);
+  }
+
+  drawBackground();
+
+  // Draw bamboos
+  for (let i = 0; i < CONFIG.bambooCount; i++) {
+    drawBamboo(getBambooX(i), bambooOffset);
+  }
+
+  // Highlight current bamboo
+  const hbx = getBambooX(monkeyBamboo) * scale;
+  const hbw = CONFIG.bambooWidth * scale;
+  ctx.fillStyle = 'rgba(245,166,35,0.08)';
+  ctx.fillRect(hbx - hbw * 2, 0, hbw * 4, CONFIG.canvasH * scale);
+
+  // Draw obstacles
+  for (const obs of obstacles) {
+    drawObstacle(obs);
+  }
+
+  // Draw monkey
+  const isHurt = invincibleTimer > CONFIG.invincibleFrames - 15;
+  drawMonkey(getBambooX(monkeyBamboo), monkeyY, isHurt);
+
+  // Draw particles
+  drawParticles();
+
+  // Warning indicators for incoming obstacles
+  for (const obs of obstacles) {
+    if (obs.y < 60) {
+      const warnX = obs.x * scale;
+      const alpha = 0.3 + Math.sin(frameCount * 0.2) * 0.2;
+      ctx.fillStyle = `rgba(231,76,60,${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(warnX, 55 * scale);
+      ctx.lineTo(warnX - 6 * scale, 45 * scale);
+      ctx.lineTo(warnX + 6 * scale, 45 * scale);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  // Bamboo labels at bottom
+  ctx.font = `bold ${11 * scale}px Nunito`;
+  ctx.textAlign = 'center';
+  for (let i = 0; i < CONFIG.bambooCount; i++) {
+    const lx = getBambooX(i) * scale;
+    ctx.fillStyle = i === monkeyBamboo ? 'rgba(245,166,35,0.6)' : 'rgba(232,245,224,0.2)';
+    ctx.fillText(i === monkeyBamboo ? '▼' : '', lx, (CONFIG.canvasH - 8) * scale);
+  }
+
+  ctx.restore();
+
+  // Draw idle animation on start/over screens
+  if (gameState === 'start' || gameState === 'over') {
+    drawBackground();
+    for (let i = 0; i < CONFIG.bambooCount; i++) {
+      drawBamboo(getBambooX(i), frameCount * 0.5);
+    }
+    spawnLeaves();
+    updateParticles();
+    drawParticles();
+    frameCount++;
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// ==================== INPUT HANDLING ====================
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+    e.preventDefault();
+    moveMonkey(-1);
+  }
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+    e.preventDefault();
+    moveMonkey(1);
+  }
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (gameState === 'start') startGame();
+    else if (gameState === 'over') startGame();
+  }
+});
+
+// Touch / click buttons
+document.getElementById('leftBtn').addEventListener('mousedown', (e) => { e.preventDefault(); moveMonkey(-1); });
+document.getElementById('rightBtn').addEventListener('mousedown', (e) => { e.preventDefault(); moveMonkey(1); });
+document.getElementById('leftBtn').addEventListener('touchstart', (e) => { e.preventDefault(); moveMonkey(-1); }, { passive: false });
+document.getElementById('rightBtn').addEventListener('touchstart', (e) => { e.preventDefault(); moveMonkey(1); }, { passive: false });
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+
+// Swipe support
+let touchStartX = 0;
+canvas.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+canvas.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 30) {
+    moveMonkey(dx > 0 ? 1 : -1);
+  }
+}, { passive: true });
+
+// ==================== INIT ====================
+gameLoop();
+</script>
+</body>
+</html>
